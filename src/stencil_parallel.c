@@ -1,6 +1,4 @@
 /*
-
-/*
  *
  *  mysizex   :   local x-extendion of your patch
  *  mysizey   :   local y-extension of your patch
@@ -13,6 +11,10 @@
 int test = 0;
 int seed = 0;
 
+// Function declaration
+double* merged_data(int iter, plane_t *plane, int Rank, int Ntasks, uint *N, const uint [2], MPI_Comm *myCOMM_WORLD);
+
+int dump (double *, const uint [2], const char *, double *, double *);
 
 // ------------------------------------------------------------------
 // ------------------------------------------------------------------
@@ -250,7 +252,7 @@ int main(int argc, char **argv)
 #endif
 
   /* release allocated memory */ //MIRAR
-  memory_release( buffers, planes );
+  memory_release(planes, buffers );
 
 /* gather maxima across ranks (we report the slowest process values) */
 double max_comp_time = 0.0, max_comm_time = 0.0, max_total_time = 0.0;
@@ -352,7 +354,7 @@ if (Rank == 0 && test) {
    ========================================================================== */
 
 
-uint simple_factorization( uint, int *, uint ** );
+int simple_factorization( uint, int *, uint ** );
 
 int initialize_sources( int       ,
 			int       ,
@@ -679,7 +681,7 @@ int initialize ( MPI_Comm *Comm,
   ret = memory_allocate( neighbours, mysize, buffers, planes );
   if (ret != 0) {
     // an error has occurred during memory allocation
-      printf(stderr, "Task %d: memory allocation failed\n", Me );
+      fprintf(stderr, "Task %d: memory allocation failed\n", Me );
       return 1;
     }
 
@@ -696,7 +698,7 @@ int initialize ( MPI_Comm *Comm,
 }
 
 
-uint simple_factorization( uint A, int *Nfactors, uint **factors )
+int simple_factorization( uint Ntasks, int *Nfactors, uint **factors )
 /*
  * rought factorization;
  * assumes that A is small, of the order of <~ 10^5 max,
@@ -705,37 +707,53 @@ uint simple_factorization( uint A, int *Nfactors, uint **factors )
  */
 {
   int N = 0;
-  int f = 2;
-  uint _A_ = A;
+  uint f = 2;
+  uint _A_ = Ntasks;
 
-  while ( f < A )
-    {
-      while( _A_ % f == 0 ) {
-	N++;
-	_A_ /= f; }
-
+  // first pass: count the number of factors
+  uint temp_A = Ntasks;
+  while (f*f <= temp_A) {
+      while (temp_A % f == 0) {
+          N++;
+          temp_A /= f;
+      }
       f++;
-    }
-
+  }
+  // last factor
+  if (temp_A > 1) {
+      N++;
+  }
+  
   *Nfactors = N;
-  uint *_factors_ = (uint*)malloc( N * sizeof(uint) );
-
+  if (N == 0) {
+      *factors = NULL;
+      return 0;
+  }
+  // allocate memory for the factors
+  uint *_factors_ = (uint*)malloc( (size_t)N * sizeof(uint) );
+  if (_factors_ == NULL) {
+      printf("Error: memory allocation failed\n");
+      return 1;
+  }
+  // second pass: store the factors
   N   = 0;
   f   = 2;
-  _A_ = A;
+  _A_ = Ntasks;
 
-  while ( f < A )
-    {
-      while( _A_ % f == 0 ) {
-	_factors_[N++] = f;
-	_A_ /= f; }
+  while (f*f <= _A_) {
+      while (_A_ % f == 0) {
+          _factors_[N++] = f;
+          _A_ /= f;
+      }
       f++;
-    }
+  }
+  if (_A_ > 1) {
+      _factors_[N++] = _A_;
+  }
 
   *factors = _factors_;
   return 0;
 }
-
 
 int initialize_sources( int       Me,
 			int       Ntasks,
@@ -884,8 +902,34 @@ int memory_allocate ( const int       *neighbours  ,
   // allocate buffers
   //
 
+  // for north and south I can just use pointers to the correct positions
+  (buffers_ptr)[SEND][NORTH] = NULL;
+  (buffers_ptr)[SEND][SOUTH] = NULL;
 
+  // for east and west I need to allocate memory
+  if ( neighbours[EAST] != MPI_PROC_NULL )
+    (buffers_ptr)[SEND][EAST] = (double*)calloc( planes_ptr[OLD].size[_y_], sizeof(double) );
+  else
+    (buffers_ptr)[SEND][EAST] = NULL;
 
+  if ( neighbours[WEST] != MPI_PROC_NULL )
+    (buffers_ptr)[SEND][WEST] = (double*)calloc( planes_ptr[OLD].size[_y_], sizeof(double) );
+  else
+    (buffers_ptr)[SEND][WEST] = NULL;
+  
+  (buffers_ptr)[RECV][NORTH] = NULL;
+  (buffers_ptr)[RECV][SOUTH] = NULL;
+
+  if ( neighbours[EAST] != MPI_PROC_NULL )
+    (buffers_ptr)[RECV][EAST] = (double*)calloc( planes_ptr[OLD].size[_y_], sizeof(double) );
+  else
+    (buffers_ptr)[RECV][EAST] = NULL;
+
+  if ( neighbours[WEST] != MPI_PROC_NULL )
+    (buffers_ptr)[RECV][WEST] = (double*)calloc( planes_ptr[OLD].size[_y_], sizeof(double) );
+  else
+    (buffers_ptr)[RECV][WEST] = NULL;
+  
 
   // ··················································
 
@@ -895,22 +939,34 @@ int memory_allocate ( const int       *neighbours  ,
 
 
 
- int memory_release ( plane_t   *planes,
-		      ....
-		     )
+ int memory_release ( plane_t   *planes, buffers_t  *buffers)
   
 {
 
-  if ( planes != NULL )
-    {
+  if ( planes != NULL ) {
       if ( planes[OLD].data != NULL )
-	free (planes[OLD].data);
+          free (planes[OLD].data);
       
       if ( planes[NEW].data != NULL )
-	free (planes[NEW].data);
-    }
+          free (planes[NEW].data);
+  }
 
-      
+  // free the buffers
+  if ( buffers != NULL ) {
+    if ( buffers[SEND][EAST] != NULL )
+      free ( buffers[SEND][EAST] );
+
+    if ( buffers[SEND][WEST] != NULL )
+      free ( buffers[SEND][WEST] );
+
+    if ( buffers[RECV][EAST] != NULL )
+      free ( buffers[RECV][EAST] );
+
+    if ( buffers[RECV][WEST] != NULL )
+      free ( buffers[RECV][WEST] );
+  }
+  
+
   return 0;
 }
 
@@ -927,10 +983,10 @@ int output_energy_stat ( int step, plane_t *plane, double budget, int Me, MPI_Co
   
   if ( Me == 0 )
     {
-      if ( step >= 0 )
-	printf(" [ step %4d ] ", step ); fflush(stdout);
+      if ( step >= 0 ) {
+	        printf(" [ step %4d ] ", step ); fflush(stdout);
+      }
 
-      
       printf( "total injected energy is %g, "
 	      "system energy is %g "
 	      "( in avg %g per grid point)\n",
@@ -941,3 +997,130 @@ int output_energy_stat ( int step, plane_t *plane, double budget, int Me, MPI_Co
   
   return 0;
 }
+
+// Merged data
+double* merged_data(int iter, plane_t *plane, int Rank, int Ntasks, uint *N, const uint S[2], MPI_Comm *myCOMM_WORLD) {
+  // Gather all data to rank 0 for output
+  int xsize = plane->size[_x_];
+  int ysize = plane->size[_y_];
+  int fxsize = xsize + 2;
+  size_t local_size = xsize * ysize;
+  double *global_grid = NULL;
+
+  // Get the global grid decomposition
+  int Grid_x = N[_x_];
+  int Grid_y = N[_y_];
+  // Get the global grid dimensions
+  int global_xsize = S[_x_];
+  int global_ysize = S[_y_];
+
+  // Get local data without halos
+  double *localbuf = (double*)malloc(local_size * sizeof(double));
+  for (int j = 0; j < ysize; j++) {
+      for (int i = 0; i < xsize; i++) {
+          localbuf[j * xsize + i] = plane->data[(j + 1) * fxsize + (i + 1)];
+      }
+  }
+
+  // If Ntasks == 1 just return local data as global data
+  if (Ntasks == 1) {
+      return localbuf;
+  }
+
+  double *gathered = NULL;
+  int *recvcounts = NULL;
+  int *displs = NULL;
+  recvcounts = (int*)calloc((size_t)Ntasks, sizeof(int));
+  displs = (int*)calloc((size_t)Ntasks, sizeof(int));
+
+  // Rank 0 allocates arrays to gather sizes and data
+  if (Rank == 0) {
+    gathered = (double*)malloc((size_t)(global_xsize * global_ysize) * sizeof(double));
+    // Compute the sizes of each rank's patch
+    int offset = 0;
+    for (int r = 0; r < Ntasks; r++) {
+        int rx = r % Grid_x;
+        int ry = r / Grid_x;
+        int sx = global_xsize / Grid_x + (rx < (global_xsize % Grid_x));
+        int sy = global_ysize / Grid_y + (ry < (global_ysize % Grid_y));
+        // Compute the displacements and counts for Gatherv
+        displs[r] = offset;
+        recvcounts[r] = sx * sy;
+        offset += sx * sy;
+    }
+  }
+  MPI_Gatherv(localbuf, (int)local_size, MPI_DOUBLE,
+              gathered, recvcounts, displs, MPI_DOUBLE,
+              0, *myCOMM_WORLD);
+  free(localbuf);
+
+  // Rank 0 rearranges the gathered data into the correct global grid
+  if (Rank == 0) {
+      global_grid = (double*)malloc((size_t)(global_xsize * global_ysize) * sizeof(double));
+      
+      // Rearrange each rank's block into its correct position
+      for (int r = 0; r < Ntasks; r++) {
+          int rx = r % Grid_x;
+          int ry = r / Grid_x;
+          int sx = global_xsize / Grid_x + (rx < (global_xsize % Grid_x));
+          int sy = global_ysize / Grid_y + (ry < (global_ysize % Grid_y));
+          
+          // Compute the starting indices in the global grid
+          int startx = 0;
+          for (int i = 0; i < rx; i++) {
+              startx += global_xsize / Grid_x + (i < (global_xsize % Grid_x));
+          }
+          int starty = 0;
+          for (int j = 0; j < ry; j++) {
+              starty += global_ysize / Grid_y + (j < (global_ysize % Grid_y));
+          }
+
+          // Copy the patch into the correct position in the global grid
+          for (int j = 0; j < sy; j++) {
+              for (int i = 0; i < sx; i++) {
+                  global_grid[(starty + j) * global_xsize + (startx + i)] = gathered[displs[r] + j * sx + i];
+              }
+          }
+      }
+      free(gathered);
+      free(recvcounts);
+      free(displs);
+  }
+  MPI_Barrier(*myCOMM_WORLD);
+  return global_grid;
+}
+
+int dump (double *data, const uint size[2], const char *filename, double *min, double *max){
+    if ( (filename != NULL) && (filename[0] != '\0') ) {
+        FILE *f = fopen(filename, "wb");
+        if (f == NULL) {
+          return 2;
+        }
+        fwrite(size, sizeof(uint), 2, f);
+
+        float *array = (float*)malloc( size[0] * sizeof(float));
+
+        double _min_ = DBL_MAX;
+        double _max_ = -DBL_MAX;
+
+        for ( int j = 0; j < size[1]; j++ ) {
+          const double * restrict line = data + j*size[0];
+          for ( int i = 0; i < size[0]; i++ ) {
+            array[i] = (float)line[i];
+            _min_ = (line[i] < _min_ ? line[i] : _min_);
+            _max_ = (line[i] > _max_ ? line[i] : _max_);
+          }
+          fwrite(array, sizeof(float), size[0], f);
+        }
+        free(array);
+        if (min != NULL) {
+          *min = _min_;
+        }
+        if (max != NULL) {
+          *max = _max_;
+        }
+        fclose(f);
+        return 0;
+      }
+      else return 1;
+    }

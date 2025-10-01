@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <math.h>
+#include <float.h>
 
 #include <omp.h>
 #include <mpi.h>
@@ -84,7 +85,7 @@ int initialize ( MPI_Comm *,
                  buffers_t * );
 
 
-int memory_release (buffers_t *, plane_t * );
+int memory_release (plane_t *, buffers_t * );
 
 
 int output_energy_stat ( int      ,
@@ -362,8 +363,6 @@ inline int get_total_energy( plane_t *plane,
    #else
     double totenergy = 0;    
    #endif
-
-   uint i, j;
 
     // HINT: you may attempt to
     //       (i)  manually unroll the loop
