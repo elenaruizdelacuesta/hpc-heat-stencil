@@ -15,17 +15,6 @@ export OMP_NUM_THREADS=$OMP_THREADS
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
 
-# =======================================================
-# Activar CSV de rendimiento
-export test=1
-export TEST_TYPE=${JOB_NAME}
-
-# Crear carpeta data/ si no existe
-mkdir -p data
-
-# =======================================================
-
-
 if [[ ${TOTAL_TASKS} -eq 1 ]]; then
     ${EXEC} -n ${N_STEPS} -x ${GRID_SIZE_X} -y ${GRID_SIZE_Y} -p 1
 else

@@ -41,6 +41,8 @@ int main(int argc, char **argv)
   int  Niterations;
   int  periodic;
   vec2_t S, N; // size of the plate, and grid of MPI tasks
+
+  int verbose = 0;
   
   int      Nsources;
   int      Nsources_local; // number of local sources
@@ -235,21 +237,31 @@ int main(int argc, char **argv)
       comp_time += MPI_Wtime() - start_time_comp;
 
       /* output if needed */
-      #if defined(VERBOSE_LEVEL) && VERBOSE_LEVEL >= 1
-              if ( output_energy_stat_perstep )
-                  output_energy_stat ( iter, &planes[!current], (iter+1) * Nsources*energy_per_source, Rank, &myCOMM_WORLD );
-      #endif
+      if ( output_energy_stat_perstep )
+          output_energy_stat ( iter, &planes[!current], (iter+1) * Nsources*energy_per_source, Rank, &myCOMM_WORLD );
 
+      // Debug
+      if (verbose){
+          double* data = merged_data(iter, &planes[!current], Rank, Ntasks, N, S, &myCOMM_WORLD);
+          if (Rank == 0 && data != NULL) {
+              char filename[64];
+              snprintf(filename, sizeof(filename), "/output/parallel_plane_%05d.bin", iter);
+              dump(data, S, filename, NULL, NULL);
+          }
+          // Free merged data
+          if (data != NULL) {
+              free(data);
+          }
+      }
       /* swap plane indexes for the new iteration */
       current = !current;
       
     }
   
   total_time = MPI_Wtime() - total_time;
+  
+  output_energy_stat ( -1, &planes[!current], Niterations * Nsources*energy_per_source, Rank, &myCOMM_WORLD );
 
-#if defined(VERBOSE_LEVEL) && VERBOSE_LEVEL >= 1
-    output_energy_stat ( -1, &planes[!current], Niterations * Nsources*energy_per_source, Rank, &myCOMM_WORLD );
-#endif
 
   /* release allocated memory */ //MIRAR
   memory_release(planes, buffers );
@@ -263,6 +275,65 @@ MPI_Reduce(&total_time, &max_total_time, 1, MPI_DOUBLE, MPI_MAX, 0, myCOMM_WORLD
 /* free duplicated communicator (tidy) */
 MPI_Comm_free(&myCOMM_WORLD);
 
+if (Rank == 0) {
+    const char *job_name = getenv("JOB_NAME");
+    if (!job_name) job_name = "job"; // fallback
+
+    // Asegurar directorio
+    #ifdef _WIN32
+      system("mkdir output 2>nul");
+    #else
+      system("mkdir -p output 2>/dev/null");
+    #endif
+
+    // Escoger CSV de salida según tipo de job
+    char filename[512];
+    if (strstr(job_name, "thread_scaling")) {
+        snprintf(filename, sizeof(filename), "output/thread_scaling.csv");
+    } else if (strstr(job_name, "strong_scale")) {
+        snprintf(filename, sizeof(filename), "output/strong_scaling.csv");
+    } else if (strstr(job_name, "weak_scale")) {
+        snprintf(filename, sizeof(filename), "output/weak_scaling.csv");
+    } else {
+        // fallback → crea un CSV por nombre de job
+        snprintf(filename, sizeof(filename), "output/%s.csv", job_name);
+    }
+
+    FILE *file = fopen(filename, "a"); // append mode para acumular
+    if (!file) {
+        fprintf(stderr, "ERROR: cannot open file %s for writing\n", filename);
+    } else {
+        // Si el archivo está vacío, escribir cabecera
+        fseek(file, 0, SEEK_END);
+        long size = ftell(file);
+        if (size == 0) {
+            fprintf(file,
+                "JobName,OMP_THREADS,Ntasks,GridX,GridY,Iterations,"
+                "Max_total_time,Max_Communication_time,Max_Computation_time,Init_time\n");
+        }
+
+        // Recuperar threads desde el entorno
+        const char* omp_threads_str = getenv("OMP_THREADS");
+        int omp_threads = omp_threads_str ? atoi(omp_threads_str) : 0;
+
+        // Escribir resultados
+        fprintf(file, "%s,%d,%d,%u,%u,%d,%f,%f,%f,%f\n",
+            job_name,
+            omp_threads,
+            Ntasks,
+            S[_x_], S[_y_],
+            Niterations,
+            max_total_time,
+            max_comm_time,
+            max_comp_time,
+            init_time
+        );
+
+        fclose(file);
+    }
+}
+
+
 /* print only on rank 0 using the reduced (max) values */
 if (Rank == 0) {
     /* safety: avoid division by zero */
@@ -272,66 +343,13 @@ if (Rank == 0) {
     if (overhead < 0.0) overhead = 0.0; // numerical safety
 
     printf("=== PERFORMANCE SUMMARY ===\n");
-    printf("Total time (max over ranks):          %.6f s\n", max_total_time);
-    printf("Computation time (max over ranks):    %.6f s\n", max_comp_time);
-    printf("Communication time (max over ranks):  %.6f s\n", max_comm_time);
+    printf("max total time (max over ranks):          %.6f s\n", max_total_time);
+    printf("max computation time (max over ranks):    %.6f s\n", max_comp_time);
+    printf("max communication time (max over ranks):  %.6f s\n", max_comm_time);
     printf("Overhead (total - (comp + comm)):     %.6f s\n", overhead);
     printf("Comp/Total ratio:   %.2f%%\n", (max_comp_time / safe_total) * 100.0);
     printf("Comm/Total ratio:   %.2f%%\n", (max_comm_time / safe_total) * 100.0);
     printf("=============================\n");
-}
-
-/* optional CSV output for automated tests (only rank 0) */
-if (Rank == 0 && test) {
-    const char* test_type = getenv("TEST_TYPE"); // must be set by caller
-    if (test_type == NULL) {
-        fprintf(stderr, "TEST_TYPE not set; skipping CSV output\n");
-    } else {
-        char filename[256];
-        snprintf(filename, sizeof(filename), "data/%s_results.csv", test_type);
-        #ifdef _WIN32
-          system("mkdir data 2>nul");
-        #else
-          system("mkdir -p data 2>/dev/null");
-        #endif
-
-        FILE *results_file = fopen(filename, "a");
-        if (results_file != NULL) {
-            /* write header if file empty */
-            fseek(results_file, 0, SEEK_END);
-            long size = ftell(results_file);
-            if (size == 0) {
-                fprintf(results_file, "TestType,Nodes,TotalTasks,TasksPerNode,ThreadsPerTask,XDim,YDim,Iterations,TotalTime,ComputationTime,CommunicationTime\n");
-            }
-
-            const char* nodes_str = getenv("SLURM_NNODES");
-            const char* total_tasks_str = getenv("SLURM_NTASKS");
-            const char* tasks_per_node_str = getenv("SLURM_NTASKS_PER_NODE");
-            const char* threads_per_task_str = getenv("OMP_NUM_THREADS");
-
-            int nodes = nodes_str ? atoi(nodes_str) : 0;
-            int total_tasks = total_tasks_str ? atoi(total_tasks_str) : 0;
-            int tasks_per_node = tasks_per_node_str ? atoi(tasks_per_node_str) : 0;
-            int threads_per_task = threads_per_task_str ? atoi(threads_per_task_str) : 0;
-
-            fprintf(results_file, "%s,%d,%d,%d,%d,%u,%u,%d,%.6f,%.6f,%.6f\n",
-                test_type,
-                nodes,
-                total_tasks,
-                tasks_per_node,
-                threads_per_task,
-                S[_x_],
-                S[_y_],
-                Niterations,
-                max_total_time,
-                max_comp_time,
-                max_comm_time );
-
-            fclose(results_file);
-        } else {
-            fprintf(stderr, "ERROR: cannot open results file %s for writing\n", filename);
-        }
-    }
 }
 
   MPI_Finalize();
