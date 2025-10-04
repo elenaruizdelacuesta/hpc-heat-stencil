@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 
   MPI_Comm myCOMM_WORLD; //
   int  Rank, Ntasks; // my rank and number of tasks
-  uint neighbours[4]; // my neighbours in the 4 directions
+  int neighbours[4]; // my neighbours in the 4 directions
 
   int  Niterations;
   int  periodic;
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
   int ret = initialize ( &myCOMM_WORLD, Rank, Ntasks, argc, argv, &S, &N, &periodic, &output_energy_stat_perstep,
 			 neighbours, &Niterations,
 			 &Nsources, &Nsources_local, &Sources_local, &energy_per_source,
-			 &planes[0], &buffers[0] );
+			 &planes[0], &buffers[0], &verbose );
 
   if ( ret )
     {
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
     
     {
       double * restrict old = planes[current].data;
-      double * restrict new = planes[!current].data;
+      // double * restrict new = planes[!current].data;
 
       MPI_Request reqs[8];
       int nreqs = 0;
@@ -240,22 +240,30 @@ int main(int argc, char **argv)
       if ( output_energy_stat_perstep )
           output_energy_stat ( iter, &planes[!current], (iter+1) * Nsources*energy_per_source, Rank, &myCOMM_WORLD );
 
-      // Debug
-      if (verbose){
-          double* data = merged_data(iter, &planes[!current], Rank, Ntasks, N, S, &myCOMM_WORLD);
-          if (Rank == 0 && data != NULL) {
-              char filename[64];
-              snprintf(filename, sizeof(filename), "/output/parallel_plane_%05d.bin", iter);
-              dump(data, S, filename, NULL, NULL);
-          }
-          // Free merged data
-          if (data != NULL) {
-              free(data);
-          }
-      }
+      
+      // DEBUG: print local planes
+      if (verbose) {
+            MPI_Barrier(myCOMM_WORLD);
+            for (int r = 0; r < Ntasks; r++) {
+                if (Rank == r) {
+                    printf("=== Rank %d local plane at iter %d ===\n", Rank, iter);
+                    printf("(includes halo cells)\n");
+
+                    for (uint j = 0; j < planes[current].size[_y_] + 2; j++) {
+                        for (uint i = 0; i < planes[current].size[_x_] + 2; i++) {
+                            printf("%6.2f ", planes[current].data[j * (planes[current].size[_x_] + 2) + i]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                    fflush(stdout);
+                }
+                MPI_Barrier(myCOMM_WORLD);
+            }
+        }
+
       /* swap plane indexes for the new iteration */
       current = !current;
-      
     }
   
   total_time = MPI_Wtime() - total_time;
@@ -280,11 +288,7 @@ if (Rank == 0) {
     if (!job_name) job_name = "job"; // fallback
 
     // Asegurar directorio
-    #ifdef _WIN32
-      system("mkdir output 2>nul");
-    #else
-      system("mkdir -p output 2>/dev/null");
-    #endif
+    system("mkdir -p output 2>/dev/null");
 
     // Escoger CSV de salida según tipo de job
     char filename[512];
@@ -405,12 +409,12 @@ int initialize ( MPI_Comm *Comm,
 		 vec2_t **Sources_local,
 		 double  *energy_per_source,   // how much heat per source
 		 plane_t *planes,
-		 buffers_t *buffers
+		 buffers_t *buffers,
+      int     *verbose
 		 )
 {
   int halt = 0;
   int ret;
-  int verbose = 0;
   
   // ··································································
   // set deffault values
@@ -470,7 +474,7 @@ int initialize ( MPI_Comm *Comm,
 	  case 'p': *periodic = (atoi(optarg) > 0);
 	    break;
 
-	  case 'v': verbose = atoi(optarg);
+	  case 'v': *verbose = atoi(optarg);
 	    break;
 
 	  case 'h': {
@@ -789,14 +793,14 @@ int initialize_sources( int       Me,
   if ( Me == 0 )
     {
       for ( int i = 0; i < Nsources; i++ )
-	tasks_with_sources[i] = (int)lrand48() % Ntasks;
+	  tasks_with_sources[i] = (int)lrand48() % Ntasks;
     }
   
   MPI_Bcast( tasks_with_sources, Nsources, MPI_INT, 0, *Comm );
 
   int nlocal = 0;
   for ( int i = 0; i < Nsources; i++ )
-    nlocal += (tasks_with_sources[i] == Me);
+      nlocal += (tasks_with_sources[i] == Me);
   *Nsources_local = nlocal;
   
   if ( nlocal > 0 )
@@ -804,6 +808,7 @@ int initialize_sources( int       Me,
       vec2_t * restrict helper = (vec2_t*)malloc( nlocal * sizeof(vec2_t) );      
       for ( int s = 0; s < nlocal; s++ )
 	{
+    printf("mysize: %d %d\n", mysize[_x_], mysize[_y_]);
 	  helper[s][_x_] = 1 + lrand48() % mysize[_x_];
 	  helper[s][_y_] = 1 + lrand48() % mysize[_y_];
 	}

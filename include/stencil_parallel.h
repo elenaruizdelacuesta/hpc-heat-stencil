@@ -82,7 +82,8 @@ int initialize ( MPI_Comm *,
                  vec2_t  **,
                  double   *,
                  plane_t  *,
-                 buffers_t * );
+                 buffers_t *,
+                int     * );
 
 
 int memory_release (plane_t *, buffers_t * );
