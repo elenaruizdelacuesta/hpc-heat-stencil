@@ -1,0 +1,29 @@
+Threads scaling: single node with multiple threads
+Submitting job thread_scaling_1_threads with 1 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110122
+Submitting job thread_scaling_2_threads with 2 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110123
+Submitting job thread_scaling_4_threads with 4 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110124
+Submitting job thread_scaling_8_threads with 8 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110125
+Submitting job thread_scaling_16_threads with 16 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110126
+Submitting job thread_scaling_32_threads with 32 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110127
+Submitting job thread_scaling_56_threads with 56 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110128
+Submitting job thread_scaling_84_threads with 84 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110129
+Submitting job thread_scaling_112_threads with 112 threads
+sbatch: no gres/tmpfs specified, using default: gres/tmpfs:10g
+Submitted batch job 21110130
+All threads scaling jobs submitted

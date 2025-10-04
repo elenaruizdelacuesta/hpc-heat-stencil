@@ -1,0 +1,19 @@
+Loading openmpi/4.1.6--gcc--12.2.0
+  Loading requirement: gcc/12.2.0-binut2.41
+Tasks are decomposed in a grid 1 x 1
+
+Task    0 :: 	grid coordinates :   0,   0
+	neighbours: N   -2    E   -2    S   -2    W   -2
+mysize: 15000 15000
+mysize: 15000 15000
+mysize: 15000 15000
+mysize: 15000 15000
+total injected energy is 3000, system energy is 3000 ( in avg 1.33333e-05 per grid point)
+=== PERFORMANCE SUMMARY ===
+max total time (max over ranks):          85.399161 s
+max computation time (max over ranks):    85.398620 s
+max communication time (max over ranks):  0.000051 s
+Overhead (total - (comp + comm)):     0.000490 s
+Comp/Total ratio:   100.00%
+Comm/Total ratio:   0.00%
+=============================

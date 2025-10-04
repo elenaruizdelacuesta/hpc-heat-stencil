@@ -1,0 +1,3 @@
+Loading openmpi/4.1.6--gcc--12.2.0
+  Loading requirement: gcc/12.2.0-binut2.41
+/var/spool/slurmd/job20999428/slurm_script: line 30: ./stencil_parallel: No such file or directory

@@ -1,0 +1,11 @@
+# Binarios
+stencil_parallel
+
+# Archivos de salida
+output/*.bin
+output/*.out
+
+
+# Archivos temporales
+*.o
+*.log

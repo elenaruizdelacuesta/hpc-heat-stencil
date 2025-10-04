@@ -1,0 +1,20 @@
+Threads scaling: single node with multiple threads
+Submitting job thread_scaling_1_threads with 1 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_2_threads with 2 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_4_threads with 4 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_8_threads with 8 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_16_threads with 16 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_32_threads with 32 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_56_threads with 56 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_84_threads with 84 threads
+sbatch: error: Unable to open file go_dcgp.sh
+Submitting job thread_scaling_112_threads with 112 threads
+sbatch: error: Unable to open file go_dcgp.sh
+All threads scaling jobs submitted
