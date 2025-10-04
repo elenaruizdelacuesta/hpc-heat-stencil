@@ -28,7 +28,7 @@ for NODES in 1 2 4 8 16; do
         --cpus-per-task=${CPUS_PER_TASK} \
         --job-name=${JOB_NAME} \
         --export=ALL,GRID_SIZE_X=${GRID_SIZE_X},GRID_SIZE_Y=${GRID_SIZE_Y},N_STEPS=${N_STEPS},OMP_THREADS=${OMP_THREADS},TOTAL_TASKS=${TOTAL_TASKS} \
-        go_dcgp.sh
+        sbatch_scripts/go_dcgp.sh
 done
 
 echo "All weak scaling jobs submitted"
