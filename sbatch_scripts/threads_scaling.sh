@@ -23,7 +23,7 @@ for OMP_THREADS in "${THREADS_LIST[@]}"; do
         --ntasks-per-node=${N_TASKS_PER_NODE} \
         --cpus-per-task=${OMP_THREADS} \
         --job-name=${JOB_NAME} \
-        go_dcgp.sh
+        sbatch_scripts/go_dcgp.sh
 done
 
 echo "All threads scaling jobs submitted"
