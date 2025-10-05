@@ -10,13 +10,18 @@ LOCAL_SIZE=4000   # tamaño de subgrilla por tarea
 
 for NODES in 1 2 4 8 16; do
     TOTAL_TASKS=$((NODES * TASKS_PER_NODE))
-    
-    # Calcular tamaño de la grilla total para mantener carga constante
-    NX=$(printf "%.0f" $(echo "sqrt($TOTAL_TASKS)" | bc -l))
-    NY=$((TOTAL_TASKS / NX))
-    GRID_SIZE_X=$((NX * LOCAL_SIZE))
-    GRID_SIZE_Y=$((NY * LOCAL_SIZE))
 
+    case ${TOTAL_TASKS} in
+        8) px=4; py=2 ;;
+       16) px=4; py=4 ;;
+       32) px=8; py=4 ;;
+       64) px=8; py=8 ;;
+      128) px=16; py=8 ;;
+    esac
+
+    GRID_SIZE_X=$((px * LOCAL_SIZE))
+    GRID_SIZE_Y=$((py * LOCAL_SIZE))
+    
     JOB_NAME="weak_scale_${NODES}n_${TOTAL_TASKS}t"
 
     echo "Submitting ${JOB_NAME}: ${NODES} nodes, ${TOTAL_TASKS} tasks, grid ${GRID_SIZE_X}x${GRID_SIZE_Y}"
