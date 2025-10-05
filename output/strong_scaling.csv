@@ -1,0 +1,5 @@
+JobName,OMP_THREADS,Ntasks,GridX,GridY,Iterations,Max_total_time,Max_Communication_time,Max_Computation_time,Init_time
+strong_scale_16n_128t,14,128,17000,17000,500,1.593824,0.136869,1.563070,0.002057
+strong_scale_8n_64t,14,64,17000,17000,500,3.201919,0.190365,3.151530,0.001167
+strong_scale_4n_32t,14,32,17000,17000,500,6.358720,0.295121,6.285917,0.005232
+strong_scale_2n_16t,14,16,17000,17000,500,12.692748,0.517434,12.488288,0.078741
