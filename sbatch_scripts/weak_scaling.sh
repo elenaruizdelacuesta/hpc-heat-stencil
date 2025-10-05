@@ -27,7 +27,7 @@ for NODES in 1 2 4 8 16; do
         --ntasks-per-node=${TASKS_PER_NODE} \
         --cpus-per-task=${CPUS_PER_TASK} \
         --job-name=${JOB_NAME} \
-        --export=ALL,GRID_SIZE_X=${GRID_SIZE_X},GRID_SIZE_Y=${GRID_SIZE_Y},N_STEPS=${N_STEPS},OMP_THREADS=${OMP_THREADS},TOTAL_TASKS=${TOTAL_TASKS} \
+        --export=ALL,GRID_SIZE_X=${GRID_SIZE_X},GRID_SIZE_Y=${GRID_SIZE_Y},N_STEPS=${N_STEPS},OMP_THREADS=${OMP_THREADS},TOTAL_TASKS=${TOTAL_TASKS},JOB_NAME=${JOB_NAME} \
         sbatch_scripts/go_dcgp.sh
 done
 
