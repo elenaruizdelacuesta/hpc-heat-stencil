@@ -3,7 +3,7 @@ stencil_parallel
 
 # Archivos de salida
 output/*.bin
-output/*.out
+slurm-*.out
 
 
 # Archivos temporales
