@@ -4,13 +4,13 @@ echo "Strong scaling: multinode study"
 
 # Configuración del problema
 N_STEPS=500
-GRID_SIZE_X=10000
-GRID_SIZE_Y=10000
+GRID_SIZE_X=15000
+GRID_SIZE_Y=15000
 OMP_THREADS=14
 CORES_PER_NODE=112
 NTASKS_PER_NODE=$((CORES_PER_NODE / OMP_THREADS))
 
-for NODES in 1 2 4 8 16; do
+for NODES in 1 2 4 8 16 32; do
     TOTAL_TASKS=$((NODES * NTASKS_PER_NODE))
     JOB_NAME="strong_scale_${NODES}n_${TOTAL_TASKS}t"
 
